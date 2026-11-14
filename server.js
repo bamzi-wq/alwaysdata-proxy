@@ -1,3 +1,6 @@
+process.on('uncaughtException', e => console.error('uncaught:', e.message));
+process.on('unhandledRejection', e => console.error('unhandled:', e));
+
 const http = require('http');
 const net = require('net');
 const crypto = require('crypto');
@@ -44,8 +47,8 @@ function parseVless(b) {
 function parseTrojan(b) {
   if (b.length < 62) return null;
   if (b.subarray(0, 56).toString() !== TROJAN_HASH) return null;
-  let i = 58;                       // skip hash + CRLF
-  if (b[i++] !== 1) return null;    // TCP only
+  let i = 58; // skip hash + CRLF
+  if (b[i++] !== 1) return null; // TCP only
   const atyp = b[i++];
   let host;
   if (atyp === 1) { host = [...b.subarray(i, i + 4)].join('.'); i += 4; }
@@ -55,7 +58,7 @@ function parseTrojan(b) {
     host = p.join(':'); i += 16;
   } else return null;
   const port = b.readUInt16BE(i); i += 2;
-  i += 2;                           // CRLF
+  i += 2; // CRLF
   return { host, port, payload: b.subarray(i), respHead: null };
 }
 
@@ -109,7 +112,10 @@ server.on('upgrade', (req, socket, head) => {
   }
 
   if (p === HU_PATH) {
-    socket.write('HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n');
+    const key = req.headers['sec-websocket-key'];
+    let h = 'HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n';
+    if (key) h += 'Sec-WebSocket-Accept: ' + crypto.createHash('sha1').update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64') + '\r\n';
+    socket.write(h + '\r\n');
     socket.setNoDelay(true);
     const s = session('vless', d => { if (socket.writable) socket.write(d); }, () => socket.destroy());
     if (head && head.length) s.data(head);
@@ -121,8 +127,5 @@ server.on('upgrade', (req, socket, head) => {
 
   socket.destroy();
 });
-
-process.on('uncaughtException', e => console.error('uncaught:', e.message));
-process.on('unhandledRejection', e => console.error('unhandled:', e));
 
 server.listen(PORT, HOST, () => console.log('listening', HOST, PORT));
