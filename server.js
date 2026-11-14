@@ -89,3 +89,40 @@ const server = http.createServer((req, res) => {
     return res.end(Buffer.from(links.join('\n')).toString('base64'));
   }
   if (req.url === '/health') return res.end('ok');
+  res.writeHead(200, { 'Content-Type': 'text/html' });
+  res.end('<!doctype html><title>Notes</title><h1>Personal notes</h1><p>Coming soon.</p>');
+});
+
+const wss = new WebSocketServer({ noServer: true });
+
+server.on('upgrade', (req, socket, head) => {
+  const p = req.url.split('?')[0];
+
+  if (p === WS_PATH || p === TR_PATH) {
+    const proto = p === TR_PATH ? 'trojan' : 'vless';
+    return wss.handleUpgrade(req, socket, head, ws => {
+      const s = session(proto, d => { if (ws.readyState === 1) ws.send(d); }, () => ws.close());
+      ws.on('message', d => s.data(Buffer.from(d)));
+      ws.on('close', () => s.end());
+      ws.on('error', () => s.end());
+    });
+  }
+
+  if (p === HU_PATH) {
+    socket.write('HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n');
+    socket.setNoDelay(true);
+    const s = session('vless', d => { if (socket.writable) socket.write(d); }, () => socket.destroy());
+    if (head && head.length) s.data(head);
+    socket.on('data', d => s.data(d));
+    socket.on('close', () => s.end());
+    socket.on('error', () => s.end());
+    return;
+  }
+
+  socket.destroy();
+});
+
+process.on('uncaughtException', e => console.error('uncaught:', e.message));
+process.on('unhandledRejection', e => console.error('unhandled:', e));
+
+server.listen(PORT, HOST, () => console.log('listening', HOST, PORT));
