@@ -23,7 +23,7 @@ const q = p => encodeURIComponent(p);
 const links = [
   `vless://${UUID_RAW}@${DOMAIN}:443?encryption=none&security=tls&sni=${DOMAIN}&fp=chrome&type=ws&host=${DOMAIN}&path=${q(WS_PATH)}#AD-VLESS-WS`,
   `trojan://${UUID_RAW}@${DOMAIN}:443?security=tls&sni=${DOMAIN}&fp=chrome&type=ws&host=${DOMAIN}&path=${q(TR_PATH)}#AD-Trojan-WS`,
-  `vless://${UUID_RAW}@${DOMAIN}:443?encryption=none&security=tls&sni=${DOMAIN}&fp=chrome&type=httpupgrade&host=${DOMAIN}&path=${q(HU_PATH)}#AD-VLESS-HU`,
+
 ];
 
 // ---------- parsers ----------
